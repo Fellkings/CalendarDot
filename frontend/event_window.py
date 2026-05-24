@@ -1,5 +1,5 @@
 import flet as ft
-from datetime import date
+from datetime import date, time
 from backend.database import SessionLocal
 from backend.crud import create_single_event, get_events_by_date, delete_event
 
@@ -18,7 +18,14 @@ class EventPanel(ft.Container):
         self.date_label = ft.Text("", size=20, weight=ft.FontWeight.BOLD)
         
         self.title_input = ft.TextField(label="Название события")
-        self.desc_input = ft.TextField(label="Описание", multiline=True, min_lines=3)
+        self.desc_input = ft.TextField(label="Описание", multiline=True, min_lines=2)
+        hours = [ft.dropdown.Option(f"{i:02d}") for i in range(24)]
+        minutes = [ft.dropdown.Option(f"{i:02d}") for i in range(0, 60, 15)]
+        
+        self.start_hour = ft.Dropdown(options=hours, width=70, dense=True, hint_text="ЧЧ")
+        self.start_minute = ft.Dropdown(options=minutes, width=70, dense=True, hint_text="ММ")
+        self.end_hour = ft.Dropdown(options=hours, width=70, dense=True, hint_text="ЧЧ")
+        self.end_minute = ft.Dropdown(options=minutes, width=70, dense=True, hint_text="ММ")
 
         self.dynamic_content = ft.Container(expand=True)
 
@@ -44,12 +51,22 @@ class EventPanel(ft.Container):
             events_controls.append(ft.Text("Нет событий на этот день", color=ft.colors.GREY_500, italic=True))
         else:
             for ev in events:
+                #если время ровно 00:00 до 23:59, пишем "Весь день"
+                is_all_day = (ev.start_time.hour == 0 and ev.start_time.minute == 0 and 
+                              ev.end_time.hour == 23 and ev.end_time.minute == 59)
+                
+                if is_all_day:
+                    time_str = "Весь день"
+                else:
+                    time_str = f"{ev.start_time.strftime('%H:%M')} - {ev.end_time.strftime('%H:%M')}"
+
                 events_controls.append(
                     ft.Container(
                         content=ft.Row(
                             controls=[
                                 ft.Column([
                                     ft.Text(ev.title, weight=ft.FontWeight.BOLD, size=14),
+                                    ft.Text(time_str, size=12, color=ft.colors.BLUE_700, weight=ft.FontWeight.W_500),
                                     ft.Text(ev.description or "", size=12, color=ft.colors.GREY_700)
                                 ], spacing=2, expand=True),
                                 
@@ -89,10 +106,25 @@ class EventPanel(ft.Container):
     def show_creation_form(self, e):
         self.title_input.value = ""
         self.desc_input.value = ""
+        self.start_hour.value = None
+        self.start_minute.value = None
+        self.end_hour.value = None
+        self.end_minute.value = None
 
         self.dynamic_content.content = ft.Column([
             ft.Text("Создание события", size=16, weight=ft.FontWeight.BOLD, color=ft.colors.BLUE_700),
             self.title_input,
+            
+            ft.Row([
+                ft.Text("Начало:", width=60), 
+                self.start_hour, ft.Text(":"), self.start_minute
+            ], alignment=ft.MainAxisAlignment.START),
+            
+            ft.Row([
+                ft.Text("Конец:", width=60), 
+                self.end_hour, ft.Text(":"), self.end_minute
+            ], alignment=ft.MainAxisAlignment.START),
+
             self.desc_input,
             ft.Row([
                 ft.TextButton("Отмена", on_click=lambda _: self.show_events_list(self.selected_date)),
@@ -110,9 +142,22 @@ class EventPanel(ft.Container):
         if not title:
             return
 
+        start_t = None
+        end_t = None
+        
+        if self.start_hour.value:
+            s_hour = int(self.start_hour.value)
+            s_minute = int(self.start_minute.value) if self.start_minute.value else 0
+            start_t = time(s_hour, s_minute)
+            
+        if self.end_hour.value:
+            e_hour = int(self.end_hour.value)
+            e_minute = int(self.end_minute.value) if self.end_minute.value else 0
+            end_t = time(e_hour, e_minute)
+
         db = SessionLocal()
         try:
-            create_single_event(db, title=title, description=desc, event_date=self.selected_date)
+            create_single_event(db, title=title, description=desc, event_date=self.selected_date, start_t=start_t, end_t=end_t)
         except Exception as ex:
             print(f"Произошла ошибка при сохранении: {ex}")
         finally:
