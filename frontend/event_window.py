@@ -1,64 +1,110 @@
 import flet as ft
 from datetime import date
 from backend.database import SessionLocal
-from backend.crud import create_single_event
+from backend.crud import create_single_event, get_events_by_date
 
 class EventPanel(ft.Container):
-    def __init__(self):
+    def __init__(self, on_event_saved):
         super().__init__()
-        self.width = 300
-        self.visible = False
+        self.width = 320
         self.bgcolor = ft.colors.GREY_50
         self.padding = 20
         self.border_radius = 10
         self.border = ft.border.all(1, ft.colors.GREY_200)
-
-        self.selected_date = None
-
-        self.title_input = ft.TextField(label="Название события", autofocus=True)
-        self.desc_input = ft.TextField(label="Описание", multiline=True, min_lines=3)
         
-        self.date_label = ft.Text("", size=18, weight=ft.FontWeight.BOLD)
+        self.on_event_saved = on_event_saved 
+        self.selected_date = date.today()
+
+        self.date_label = ft.Text("", size=20, weight=ft.FontWeight.BOLD)
+        
+        self.title_input = ft.TextField(label="Название события")
+        self.desc_input = ft.TextField(label="Описание", multiline=True, min_lines=3)
+
+        self.dynamic_content = ft.Container(expand=True)
 
         #содержимое панели
         self.content = ft.Column([
-            ft.Row([
-                self.date_label,
-                ft.IconButton(icon=ft.icons.CLOSE, on_click=self.close_panel, tooltip="Закрыть")
-            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+            self.date_label,
             ft.Divider(),
-            self.title_input,
-            self.desc_input,
-            ft.ElevatedButton("Сохранить", on_click=self.save_click, bgcolor=ft.colors.BLUE, color=ft.colors.WHITE)
-        ])
+            self.dynamic_content
+        ], expand=True)
 
-    def open_panel(self, d: date):
+        self.show_events_list(self.selected_date)
+
+    def show_events_list(self, d: date):
         self.selected_date = d
         self.date_label.value = d.strftime('%d.%m.%Y')
+        
+        db = SessionLocal()
+        events = get_events_by_date(db, d)
+        db.close()
+
+        events_controls = []
+        if not events:
+            events_controls.append(ft.Text("Нет событий на этот день", color=ft.colors.GREY_500, italic=True))
+        else:
+            for ev in events:
+                events_controls.append(
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Text(ev.title, weight=ft.FontWeight.BOLD, size=14),
+                            ft.Text(ev.description or "", size=12, color=ft.colors.GREY_700)
+                        ], spacing=2),
+                        bgcolor=ft.colors.ORANGE_100,
+                        padding=10,
+                        border_radius=6,
+                        margin=ft.margin.only(bottom=10)
+                    )
+                )
+
+        add_btn = ft.ElevatedButton(
+            "   + Новое событие   ", 
+            on_click=self.show_creation_form,
+            bgcolor=ft.colors.BLUE,
+            color=ft.colors.WHITE
+        )
+
+        self.dynamic_content.content = ft.Column([
+            ft.ListView(controls=events_controls, expand=True),
+            ft.Row([add_btn], alignment=ft.MainAxisAlignment.CENTER)
+        ], expand=True)
+        
+        if self.page:
+            self.update()
+
+    def show_creation_form(self, e):
         self.title_input.value = ""
         self.desc_input.value = ""
-        self.visible = True
-        self.update()
 
-    def close_panel(self, e):
-        self.visible = False
-        self.update()
+        self.dynamic_content.content = ft.Column([
+            ft.Text("Создание события", size=16, weight=ft.FontWeight.BOLD, color=ft.colors.BLUE_700),
+            self.title_input,
+            self.desc_input,
+            ft.Row([
+                ft.TextButton("Отмена", on_click=lambda _: self.show_events_list(self.selected_date)),
+                ft.ElevatedButton("Сохранить", on_click=self.save_click, bgcolor=ft.colors.BLUE, color=ft.colors.WHITE)
+            ], alignment=ft.MainAxisAlignment.END)
+        ], spacing=15)
+        
+        if self.page:
+            self.update()
 
     def save_click(self, e):
         title = self.title_input.value.strip()
         desc = self.desc_input.value.strip()
         
         if not title:
-            print("Ошибка: Название события не может быть пустым.")
             return
 
         db = SessionLocal()
         try:
             create_single_event(db, title=title, description=desc, event_date=self.selected_date)
-            print(f"Событие '{title}' успешно сохранено в PostgreSQL!")
         except Exception as ex:
-            print(f"Произошла ошибка при сохранении: {ex}")
+            print(f"Произошла ошибка при сохранении:: {ex}")
         finally:
             db.close()
 
-        self.close_panel(e)
+        if self.on_event_saved:
+            self.on_event_saved()
+
+        self.show_events_list(self.selected_date)

@@ -12,10 +12,13 @@ def setup_main_view(page: ft.Page):
     #заголовок приложения
     header = ft.Text("CalendarDot", size=32, weight=ft.FontWeight.BOLD)
 
-    event_panel = EventPanel()
+    def refresh_ui():
+        event_panel.show_events_list(event_panel.selected_date)
+
+    event_panel = EventPanel(on_event_saved=refresh_ui)
 
     def handle_day_click(date_obj):
-        event_panel.open_panel(date_obj)
+        event_panel.show_events_list(date_obj)
 
     calendar_grid = CalendarGrid(on_day_click=handle_day_click)
 
