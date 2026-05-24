@@ -33,7 +33,6 @@ class CalendarGrid(ft.Column):
         db = SessionLocal()
         try:
             all_events = get_events_by_date_range(db, month_dates[0], month_dates[-1])
-            
             events_by_date = {}
             for ev in all_events:
                 ev_date = ev.start_time.date()
@@ -56,7 +55,7 @@ class CalendarGrid(ft.Column):
         header_row = ft.Row(
             controls=[
                 ft.Container(
-                    content=ft.Text(day, weight=ft.FontWeight.BOLD, color=ft.colors.GREY_700), 
+                    content=ft.Text(day, weight=ft.FontWeight.BOLD, color=ft.colors.ON_SURFACE_VARIANT), 
                     alignment=ft.alignment.center, 
                     expand=1
                 ) for day in days_of_week
@@ -74,14 +73,14 @@ class CalendarGrid(ft.Column):
                 is_today = (date_obj == today)
                 
                 if is_today:
-                    text_color = ft.colors.ORANGE_800
-                    bg_color = ft.colors.ORANGE_50
-                    border_color = ft.colors.ORANGE_200
+                    text_color = ft.colors.ON_PRIMARY_CONTAINER
+                    bg_color = ft.colors.PRIMARY_CONTAINER
+                    border_color = ft.colors.PRIMARY
                     font_weight = ft.FontWeight.BOLD
                 else:
-                    text_color = ft.colors.BLACK if is_current_month else ft.colors.GREY_400
-                    bg_color = ft.colors.WHITE if is_current_month else ft.colors.GREY_50
-                    border_color = ft.colors.GREY_200
+                    text_color = ft.colors.ON_SURFACE if is_current_month else ft.colors.OUTLINE
+                    bg_color = ft.colors.SURFACE if is_current_month else ft.colors.SURFACE_VARIANT
+                    border_color = ft.colors.OUTLINE_VARIANT
                     font_weight = ft.FontWeight.NORMAL
 
                 daily_events = events_by_date.get(date_obj, [])
@@ -90,16 +89,12 @@ class CalendarGrid(ft.Column):
                 for ev in daily_events[:3]:
                     if ev.category:
                         bright_color_name = ev.category.color.replace("_100", "_400")
-                        dot_color = getattr(ft.colors, bright_color_name, ft.colors.BLUE)
+                        dot_color = getattr(ft.colors, bright_color_name, ft.colors.PRIMARY)
                     else:
-                        dot_color = ft.colors.BLUE
+                        dot_color = ft.colors.PRIMARY
 
                     dots.append(
-                        ft.Container(
-                            width=6, height=6, 
-                            border_radius=3, 
-                            bgcolor=dot_color,
-                        )
+                        ft.Container(width=6, height=6, border_radius=3, bgcolor=dot_color)
                     )
                 
                 dots_column = ft.Column(controls=dots, spacing=3)
@@ -130,7 +125,7 @@ class CalendarGrid(ft.Column):
         self.controls.extend([month_header, header_row] + grid_rows)
 
     def highlight_day(self, e, default_bgcolor):
-        e.control.bgcolor = ft.colors.BLUE_50 if e.data == "true" else default_bgcolor
+        e.control.bgcolor = ft.colors.SECONDARY_CONTAINER if e.data == "true" else default_bgcolor
         e.control.update()
 
     def prev_month(self, e):

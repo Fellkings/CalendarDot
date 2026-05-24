@@ -7,10 +7,10 @@ class EventPanel(ft.Container):
     def __init__(self, on_event_saved):
         super().__init__()
         self.width = 320
-        self.bgcolor = ft.colors.GREY_50
+        self.bgcolor = ft.colors.SURFACE_VARIANT
         self.padding = 20
         self.border_radius = 10
-        self.border = ft.border.all(1, ft.colors.GREY_200)
+        self.border = ft.border.all(1, ft.colors.OUTLINE_VARIANT)
         
         self.on_event_saved = on_event_saved 
         self.selected_date = date.today()
@@ -21,7 +21,6 @@ class EventPanel(ft.Container):
         self.desc_input = ft.TextField(label="Описание", multiline=True, min_lines=2)
         hours = [ft.dropdown.Option(f"{i:02d}") for i in range(24)]
         minutes = [ft.dropdown.Option(f"{i:02d}") for i in range(0, 60, 15)]
-
         self.start_hour = ft.Dropdown(options=hours, width=70, dense=True, hint_text="ЧЧ")
         self.start_minute = ft.Dropdown(options=minutes, width=70, dense=True, hint_text="ММ")
         self.end_hour = ft.Dropdown(options=hours, width=70, dense=True, hint_text="ЧЧ")
@@ -62,35 +61,40 @@ class EventPanel(ft.Container):
 
         events_controls = []
         if not events:
-            events_controls.append(ft.Text("Нет событий на этот день", color=ft.colors.GREY_500, italic=True))
+            events_controls.append(ft.Text("Нет событий на этот день", color=ft.colors.ON_SURFACE_VARIANT, italic=True))
         else:
             for ev in events:
                 #если время ровно 00:00 до 23:59, пишем "Весь день"
                 is_all_day = (ev.start_time.hour == 0 and ev.start_time.minute == 0 and 
                               ev.end_time.hour == 23 and ev.end_time.minute == 59)
-                
                 time_str = "Весь день" if is_all_day else f"{ev.start_time.strftime('%H:%M')} - {ev.end_time.strftime('%H:%M')}"
                 if ev.category:
-                    bg_color = getattr(ft.colors, ev.category.color, ft.colors.ORANGE_100)
+                    bg_color = getattr(ft.colors, ev.category.color, ft.colors.SECONDARY_CONTAINER)
                     display_title = f"{ev.category.emoji} {ev.title}"
+                    title_color = ft.colors.BLACK
+                    time_color = ft.colors.BLUE_700
+                    desc_color = ft.colors.GREY_700
                 else:
-                    bg_color = ft.colors.ORANGE_100
+                    bg_color = ft.colors.SECONDARY_CONTAINER
                     display_title = ev.title
+                    title_color = ft.colors.ON_SURFACE
+                    time_color = ft.colors.PRIMARY
+                    desc_color = ft.colors.ON_SURFACE_VARIANT
 
                 events_controls.append(
                     ft.Container(
                         content=ft.Row(
                             controls=[
                                 ft.Column([
-                                    ft.Text(display_title, weight=ft.FontWeight.BOLD, size=14),
-                                    ft.Text(time_str, size=12, color=ft.colors.BLUE_700, weight=ft.FontWeight.W_500),
-                                    ft.Text(ev.description or "", size=12, color=ft.colors.GREY_700)
+                                    ft.Text(display_title, weight=ft.FontWeight.BOLD, size=14, color=title_color),
+                                    ft.Text(time_str, size=12, color=time_color, weight=ft.FontWeight.W_500),
+                                    ft.Text(ev.description or "", size=12, color=desc_color)
                                 ], spacing=2, expand=True),
-
+                                
                                 #кнопка удаления
                                 ft.IconButton(
                                     icon=ft.icons.DELETE_OUTLINE, 
-                                    icon_color=ft.colors.RED_400,
+                                    icon_color=ft.colors.RED_600,
                                     tooltip="Удалить событие",
                                     on_click=lambda e, ev_id=ev.id: self.delete_click(ev_id)
                                 )
@@ -108,8 +112,8 @@ class EventPanel(ft.Container):
         add_btn = ft.ElevatedButton(
             "   + Новое событие   ", 
             on_click=self.show_creation_form,
-            bgcolor=ft.colors.BLUE,
-            color=ft.colors.WHITE
+            bgcolor=ft.colors.PRIMARY,
+            color=ft.colors.ON_PRIMARY
         )
 
         self.dynamic_content.content = ft.Column([
@@ -132,26 +136,23 @@ class EventPanel(ft.Container):
         self.category_dropdown.value = None 
 
         self.dynamic_content.content = ft.Column([
-            ft.Text("Создание события", size=16, weight=ft.FontWeight.BOLD, color=ft.colors.BLUE_700),
+            ft.Text("Создание события", size=16, weight=ft.FontWeight.BOLD, color=ft.colors.PRIMARY),
             self.title_input,
-            
             self.category_dropdown,
-            
             ft.Row([
                 ft.Text("Начало:", width=60), 
                 self.start_hour, ft.Text(":"), self.start_minute
             ], alignment=ft.MainAxisAlignment.START),
-            
+
             ft.Row([
                 ft.Text("Конец:", width=60), 
                 self.end_hour, ft.Text(":"), self.end_minute
             ], alignment=ft.MainAxisAlignment.START),
 
             self.desc_input,
-            
             ft.Row([
                 ft.TextButton("Отмена", on_click=lambda _: self.show_events_list(self.selected_date)),
-                ft.ElevatedButton("Сохранить", on_click=self.save_click, bgcolor=ft.colors.BLUE, color=ft.colors.WHITE)
+                ft.ElevatedButton("Сохранить", on_click=self.save_click, bgcolor=ft.colors.PRIMARY, color=ft.colors.ON_PRIMARY)
             ], alignment=ft.MainAxisAlignment.END)
         ], spacing=15)
         
