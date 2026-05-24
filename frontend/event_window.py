@@ -1,7 +1,7 @@
 import flet as ft
 from datetime import date
 from backend.database import SessionLocal
-from backend.crud import create_single_event, get_events_by_date
+from backend.crud import create_single_event, get_events_by_date, delete_event
 
 class EventPanel(ft.Container):
     def __init__(self, on_event_saved):
@@ -46,10 +46,24 @@ class EventPanel(ft.Container):
             for ev in events:
                 events_controls.append(
                     ft.Container(
-                        content=ft.Column([
-                            ft.Text(ev.title, weight=ft.FontWeight.BOLD, size=14),
-                            ft.Text(ev.description or "", size=12, color=ft.colors.GREY_700)
-                        ], spacing=2),
+                        content=ft.Row(
+                            controls=[
+                                ft.Column([
+                                    ft.Text(ev.title, weight=ft.FontWeight.BOLD, size=14),
+                                    ft.Text(ev.description or "", size=12, color=ft.colors.GREY_700)
+                                ], spacing=2, expand=True),
+                                
+                                #кнопка удаления
+                                ft.IconButton(
+                                    icon=ft.icons.DELETE_OUTLINE, 
+                                    icon_color=ft.colors.RED_400,
+                                    tooltip="Удалить событие",
+                                    on_click=lambda e, ev_id=ev.id: self.delete_click(ev_id)
+                                )
+                            ],
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                            vertical_alignment=ft.CrossAxisAlignment.START
+                        ),
                         bgcolor=ft.colors.ORANGE_100,
                         padding=10,
                         border_radius=6,
@@ -100,7 +114,22 @@ class EventPanel(ft.Container):
         try:
             create_single_event(db, title=title, description=desc, event_date=self.selected_date)
         except Exception as ex:
-            print(f"Произошла ошибка при сохранении:: {ex}")
+            print(f"Произошла ошибка при сохранении: {ex}")
+        finally:
+            db.close()
+
+        if self.on_event_saved:
+            self.on_event_saved()
+
+        self.show_events_list(self.selected_date)
+
+    def delete_click(self, event_id):
+        db = SessionLocal()
+        try:
+            delete_event(db, event_id)
+            print(f"Событие ID {event_id} удалено.")
+        except Exception as ex:
+            print(f"Ошибка при удалении: {ex}")
         finally:
             db.close()
 

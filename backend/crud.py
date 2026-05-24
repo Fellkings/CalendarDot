@@ -18,7 +18,7 @@ def create_single_event(db: Session, title: str, description: str, event_date: d
     
     db.add(new_event)
     db.commit()
-    
+
     db.refresh(new_event)
     return new_event
 
@@ -42,3 +42,12 @@ def get_events_by_date_range(db: Session, start_date: date, end_date: date):
         Event.start_time >= start_dt,
         Event.start_time <= end_dt
     ).all()
+
+def delete_event(db: Session, event_id: int):
+    #удаление события
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if event:
+        db.delete(event)
+        db.commit()
+        return True
+    return False
