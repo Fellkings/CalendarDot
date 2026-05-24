@@ -21,3 +21,14 @@ def create_single_event(db: Session, title: str, description: str, event_date: d
     
     db.refresh(new_event)
     return new_event
+
+def get_events_by_date(db: Session, event_date: date):
+    #список всех событий за определенный день
+    start_of_day = datetime.combine(event_date, time(0, 0))
+    end_of_day = datetime.combine(event_date, time(23, 59))
+    
+    #фильтр событий, которые начинаются в пределах этого дня
+    return db.query(Event).filter(
+        Event.start_time >= start_of_day,
+        Event.start_time <= end_of_day
+    ).order_by(Event.start_time).all()
