@@ -1,6 +1,6 @@
 import flet as ft
 import calendar
-from datetime import datetime
+from datetime import datetime, date
 
 MONTH_NAMES = [
     "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
@@ -26,6 +26,8 @@ class CalendarGrid(ft.Column):
         cal = calendar.Calendar()
         month_dates = list(cal.itermonthdates(self.current_year, self.current_month))
         month_name = MONTH_NAMES[self.current_month - 1]
+        
+        today = date.today()
         
         month_header = ft.Row(
             controls=[
@@ -55,15 +57,24 @@ class CalendarGrid(ft.Column):
             week_row = ft.Row(alignment=ft.MainAxisAlignment.SPACE_BETWEEN, expand=1)
             for date_obj in week:
                 is_current_month = (date_obj.month == self.current_month)
+                is_today = (date_obj == today)
                 
-                text_color = ft.colors.BLACK if is_current_month else ft.colors.GREY_400
-                bg_color = ft.colors.WHITE if is_current_month else ft.colors.GREY_50
+                if is_today:
+                    text_color = ft.colors.ORANGE_800
+                    bg_color = ft.colors.ORANGE_50
+                    border_color = ft.colors.ORANGE_200
+                    font_weight = ft.FontWeight.BOLD
+                else:
+                    text_color = ft.colors.BLACK if is_current_month else ft.colors.GREY_400
+                    bg_color = ft.colors.WHITE if is_current_month else ft.colors.GREY_50
+                    border_color = ft.colors.GREY_200
+                    font_weight = ft.FontWeight.NORMAL
 
                 day_container = ft.Container(
-                    content=ft.Text(str(date_obj.day), size=16, color=text_color),
+                    content=ft.Text(str(date_obj.day), size=16, color=text_color, weight=font_weight),
                     alignment=ft.alignment.top_left,
                     padding=10,
-                    border=ft.border.all(1, ft.colors.GREY_200),
+                    border=ft.border.all(1, border_color),
                     border_radius=8,
                     expand=1,
                     bgcolor=bg_color,
