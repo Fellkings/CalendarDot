@@ -1,5 +1,5 @@
 flet==0.21.2
-SQLAlchemy==2.0.29
+SQLAlchemy==2.0.49
 psycopg[binary]
 python-dateutil==2.9.0
 python-dotenv==1.0.1
