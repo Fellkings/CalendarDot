@@ -1,5 +1,6 @@
 import flet as ft
 from frontend.components import CalendarGrid
+from frontend.event_window import EventPanel
 
 def setup_main_view(page: ft.Page):
     page.title = "CalendarDot"
@@ -11,6 +12,16 @@ def setup_main_view(page: ft.Page):
     #заголовок приложения
     header = ft.Text("CalendarDot", size=32, weight=ft.FontWeight.BOLD)
 
-    calendar_grid = CalendarGrid()
+    event_panel = EventPanel()
 
-    page.add(header, calendar_grid)
+    def handle_day_click(date_obj):
+        event_panel.open_panel(date_obj)
+
+    calendar_grid = CalendarGrid(on_day_click=handle_day_click)
+
+    content_row = ft.Row(
+        controls=[calendar_grid, event_panel],
+        expand=True
+    )
+
+    page.add(header, content_row)

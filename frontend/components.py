@@ -8,9 +8,10 @@ MONTH_NAMES = [
 ]
 
 class CalendarGrid(ft.Column):
-    def __init__(self):
+    def __init__(self, on_day_click):
         super().__init__()
         self.expand = True
+        self.on_day_click = on_day_click
         
         #текущий год и месяц
         now = datetime.now()
@@ -66,14 +67,14 @@ class CalendarGrid(ft.Column):
                     border_radius=8,
                     expand=1,
                     bgcolor=bg_color,
-                    on_hover=lambda e, default_bg=bg_color: self.highlight_day(e, default_bg)
+                    on_hover=lambda e, default_bg=bg_color: self.highlight_day(e, default_bg),
+                    on_click=lambda e, d=date_obj: self.on_day_click(d)
                 )
                 week_row.controls.append(day_container)
             grid_rows.append(week_row)
 
         self.controls.extend([month_header, header_row] + grid_rows)
-        
-    #для подсветки ячейки при наведении
+
     def highlight_day(self, e, default_bgcolor):
         e.control.bgcolor = ft.colors.BLUE_50 if e.data == "true" else default_bgcolor
         e.control.update()
