@@ -1,0 +1,4 @@
+flet==0.21.2
+SQLAlchemy==2.0.29
+psycopg[binary]
+python-dateutil==2.9.0
