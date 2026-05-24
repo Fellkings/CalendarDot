@@ -14,6 +14,8 @@ def setup_main_view(page: ft.Page):
 
     def refresh_ui():
         event_panel.show_events_list(event_panel.selected_date)
+        calendar_grid.build_grid()
+        calendar_grid.update()
 
     event_panel = EventPanel(on_event_saved=refresh_ui)
 

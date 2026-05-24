@@ -1,6 +1,8 @@
 import flet as ft
 import calendar
 from datetime import datetime, date
+from backend.database import SessionLocal
+from backend.crud import get_events_by_date_range
 
 MONTH_NAMES = [
     "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
@@ -26,9 +28,21 @@ class CalendarGrid(ft.Column):
         cal = calendar.Calendar()
         month_dates = list(cal.itermonthdates(self.current_year, self.current_month))
         month_name = MONTH_NAMES[self.current_month - 1]
-        
         today = date.today()
         
+        db = SessionLocal()
+        try:
+            all_events = get_events_by_date_range(db, month_dates[0], month_dates[-1])
+            
+            events_by_date = {}
+            for ev in all_events:
+                ev_date = ev.start_time.date()
+                if ev_date not in events_by_date:
+                    events_by_date[ev_date] = []
+                events_by_date[ev_date].append(ev)
+        finally:
+            db.close()
+
         month_header = ft.Row(
             controls=[
                 ft.IconButton(icon=ft.icons.CHEVRON_LEFT, tooltip="Предыдущий месяц", on_click=self.prev_month),
@@ -70,8 +84,31 @@ class CalendarGrid(ft.Column):
                     border_color = ft.colors.GREY_200
                     font_weight = ft.FontWeight.NORMAL
 
+                daily_events = events_by_date.get(date_obj, [])
+                dots = []
+                
+                for _ in range(min(len(daily_events), 3)):
+                    dots.append(
+                        ft.Container(
+                            width=6, height=6, 
+                            border_radius=3, 
+                            bgcolor=ft.colors.BLUE,
+                        )
+                    )
+                
+                dots_column = ft.Column(controls=dots, spacing=3)
+                
+                day_content = ft.Row(
+                    controls=[
+                        ft.Text(str(date_obj.day), size=16, color=text_color, weight=font_weight),
+                        dots_column
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    vertical_alignment=ft.CrossAxisAlignment.START
+                )
+
                 day_container = ft.Container(
-                    content=ft.Text(str(date_obj.day), size=16, color=text_color, weight=font_weight),
+                    content=day_content,
                     alignment=ft.alignment.top_left,
                     padding=10,
                     border=ft.border.all(1, border_color),
