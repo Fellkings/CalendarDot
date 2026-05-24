@@ -87,12 +87,18 @@ class CalendarGrid(ft.Column):
                 daily_events = events_by_date.get(date_obj, [])
                 dots = []
                 
-                for _ in range(min(len(daily_events), 3)):
+                for ev in daily_events[:3]:
+                    if ev.category:
+                        bright_color_name = ev.category.color.replace("_100", "_400")
+                        dot_color = getattr(ft.colors, bright_color_name, ft.colors.BLUE)
+                    else:
+                        dot_color = ft.colors.BLUE
+
                     dots.append(
                         ft.Container(
                             width=6, height=6, 
                             border_radius=3, 
-                            bgcolor=ft.colors.BLUE,
+                            bgcolor=dot_color,
                         )
                     )
                 

@@ -1,7 +1,7 @@
 import flet as ft
 from datetime import date, time
 from backend.database import SessionLocal
-from backend.crud import create_single_event, get_events_by_date, delete_event
+from backend.crud import create_single_event, get_events_by_date, delete_event, get_all_categories
 
 class EventPanel(ft.Container):
     def __init__(self, on_event_saved):
@@ -21,11 +21,13 @@ class EventPanel(ft.Container):
         self.desc_input = ft.TextField(label="Описание", multiline=True, min_lines=2)
         hours = [ft.dropdown.Option(f"{i:02d}") for i in range(24)]
         minutes = [ft.dropdown.Option(f"{i:02d}") for i in range(0, 60, 15)]
-        
+
         self.start_hour = ft.Dropdown(options=hours, width=70, dense=True, hint_text="ЧЧ")
         self.start_minute = ft.Dropdown(options=minutes, width=70, dense=True, hint_text="ММ")
         self.end_hour = ft.Dropdown(options=hours, width=70, dense=True, hint_text="ЧЧ")
         self.end_minute = ft.Dropdown(options=minutes, width=70, dense=True, hint_text="ММ")
+
+        self.category_dropdown = ft.Dropdown(label="Категория", dense=True)
 
         self.dynamic_content = ft.Container(expand=True)
 
@@ -37,6 +39,18 @@ class EventPanel(ft.Container):
         ], expand=True)
 
         self.show_events_list(self.selected_date)
+
+    def load_categories_to_dropdown(self):
+        #список категорий
+        db = SessionLocal()
+        categories = get_all_categories(db)
+        db.close()
+        
+        options = []
+        for cat in categories:
+            options.append(ft.dropdown.Option(key=str(cat.id), text=f"{cat.emoji} {cat.name}"))
+        
+        self.category_dropdown.options = options
 
     def show_events_list(self, d: date):
         self.selected_date = d
@@ -55,21 +69,24 @@ class EventPanel(ft.Container):
                 is_all_day = (ev.start_time.hour == 0 and ev.start_time.minute == 0 and 
                               ev.end_time.hour == 23 and ev.end_time.minute == 59)
                 
-                if is_all_day:
-                    time_str = "Весь день"
+                time_str = "Весь день" if is_all_day else f"{ev.start_time.strftime('%H:%M')} - {ev.end_time.strftime('%H:%M')}"
+                if ev.category:
+                    bg_color = getattr(ft.colors, ev.category.color, ft.colors.ORANGE_100)
+                    display_title = f"{ev.category.emoji} {ev.title}"
                 else:
-                    time_str = f"{ev.start_time.strftime('%H:%M')} - {ev.end_time.strftime('%H:%M')}"
+                    bg_color = ft.colors.ORANGE_100
+                    display_title = ev.title
 
                 events_controls.append(
                     ft.Container(
                         content=ft.Row(
                             controls=[
                                 ft.Column([
-                                    ft.Text(ev.title, weight=ft.FontWeight.BOLD, size=14),
+                                    ft.Text(display_title, weight=ft.FontWeight.BOLD, size=14),
                                     ft.Text(time_str, size=12, color=ft.colors.BLUE_700, weight=ft.FontWeight.W_500),
                                     ft.Text(ev.description or "", size=12, color=ft.colors.GREY_700)
                                 ], spacing=2, expand=True),
-                                
+
                                 #кнопка удаления
                                 ft.IconButton(
                                     icon=ft.icons.DELETE_OUTLINE, 
@@ -81,7 +98,7 @@ class EventPanel(ft.Container):
                             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                             vertical_alignment=ft.CrossAxisAlignment.START
                         ),
-                        bgcolor=ft.colors.ORANGE_100,
+                        bgcolor=bg_color,
                         padding=10,
                         border_radius=6,
                         margin=ft.margin.only(bottom=10)
@@ -110,10 +127,15 @@ class EventPanel(ft.Container):
         self.start_minute.value = None
         self.end_hour.value = None
         self.end_minute.value = None
+        
+        self.load_categories_to_dropdown()
+        self.category_dropdown.value = None 
 
         self.dynamic_content.content = ft.Column([
             ft.Text("Создание события", size=16, weight=ft.FontWeight.BOLD, color=ft.colors.BLUE_700),
             self.title_input,
+            
+            self.category_dropdown,
             
             ft.Row([
                 ft.Text("Начало:", width=60), 
@@ -126,6 +148,7 @@ class EventPanel(ft.Container):
             ], alignment=ft.MainAxisAlignment.START),
 
             self.desc_input,
+            
             ft.Row([
                 ft.TextButton("Отмена", on_click=lambda _: self.show_events_list(self.selected_date)),
                 ft.ElevatedButton("Сохранить", on_click=self.save_click, bgcolor=ft.colors.BLUE, color=ft.colors.WHITE)
@@ -144,7 +167,7 @@ class EventPanel(ft.Container):
 
         start_t = None
         end_t = None
-        
+
         if self.start_hour.value:
             s_hour = int(self.start_hour.value)
             s_minute = int(self.start_minute.value) if self.start_minute.value else 0
@@ -155,9 +178,13 @@ class EventPanel(ft.Container):
             e_minute = int(self.end_minute.value) if self.end_minute.value else 0
             end_t = time(e_hour, e_minute)
 
+        cat_id = int(self.category_dropdown.value) if self.category_dropdown.value else None
+
         db = SessionLocal()
         try:
-            create_single_event(db, title=title, description=desc, event_date=self.selected_date, start_t=start_t, end_t=end_t)
+
+            create_single_event(db, title=title, description=desc, event_date=self.selected_date, 
+                                start_t=start_t, end_t=end_t, category_id=cat_id)
         except Exception as ex:
             print(f"Произошла ошибка при сохранении: {ex}")
         finally:

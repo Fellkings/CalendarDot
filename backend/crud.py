@@ -1,8 +1,9 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from datetime import datetime, date, time
-from backend.models import Event
+from backend.models import Event, Category
 
-def create_single_event(db: Session, title: str, description: str, event_date: date, start_t: time = None, end_t: time = None):
+def create_single_event(db: Session, title: str, description: str, event_date: date, 
+                        start_t: time = None, end_t: time = None, category_id: int = None):
     #cоздает одиночное событие в базе данных.
     actual_start_time = start_t if start_t else time(0, 0)
     actual_end_time = end_t if end_t else time(23, 59)
@@ -14,7 +15,8 @@ def create_single_event(db: Session, title: str, description: str, event_date: d
         title=title,
         description=description,
         start_time=start_datetime,
-        end_time=end_datetime
+        end_time=end_datetime,
+        category_id=category_id
     )
     
     db.add(new_event)
@@ -28,7 +30,7 @@ def get_events_by_date(db: Session, event_date: date):
     end_of_day = datetime.combine(event_date, time(23, 59))
     
     #фильтр событий, которые начинаются в пределах этого дня
-    return db.query(Event).filter(
+    return db.query(Event).options(joinedload(Event.category)).filter(
         Event.start_time >= start_of_day,
         Event.start_time <= end_of_day
     ).order_by(Event.start_time).all()
@@ -38,7 +40,7 @@ def get_events_by_date_range(db: Session, start_date: date, end_date: date):
     start_dt = datetime.combine(start_date, time(0, 0))
     end_dt = datetime.combine(end_date, time(23, 59))
     
-    return db.query(Event).filter(
+    return db.query(Event).options(joinedload(Event.category)).filter(
         Event.start_time >= start_dt,
         Event.start_time <= end_dt
     ).all()
@@ -51,3 +53,7 @@ def delete_event(db: Session, event_id: int):
         db.commit()
         return True
     return False
+
+def get_all_categories(db: Session):
+    #все категории в сетке
+    return db.query(Category).order_by(Category.name).all()
