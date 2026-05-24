@@ -4,7 +4,7 @@ from frontend.event_window import EventPanel
 
 def setup_main_view(page: ft.Page):
     page.title = "CalendarDot"
-    page.window_width = 1000
+    page.window_width = 1200
     page.window_height = 700
     page.theme_mode = ft.ThemeMode.LIGHT  #cветлая тема
     page.padding = 20

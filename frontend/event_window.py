@@ -1,5 +1,7 @@
 import flet as ft
 from datetime import date
+from backend.database import SessionLocal
+from backend.crud import create_single_event
 
 class EventPanel(ft.Container):
     def __init__(self):
@@ -43,8 +45,20 @@ class EventPanel(ft.Container):
         self.update()
 
     def save_click(self, e):
-        print(f"--- НОВОЕ СОБЫТИЕ ---")
-        print(f"Дата: {self.selected_date.strftime('%d.%m.%Y')}")
-        print(f"Название: {self.title_input.value}")
-        print(f"Описание: {self.desc_input.value}\n")
+        title = self.title_input.value.strip()
+        desc = self.desc_input.value.strip()
+        
+        if not title:
+            print("Ошибка: Название события не может быть пустым.")
+            return
+
+        db = SessionLocal()
+        try:
+            create_single_event(db, title=title, description=desc, event_date=self.selected_date)
+            print(f"Событие '{title}' успешно сохранено в PostgreSQL!")
+        except Exception as ex:
+            print(f"Произошла ошибка при сохранении: {ex}")
+        finally:
+            db.close()
+
         self.close_panel(e)
