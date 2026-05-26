@@ -8,11 +8,9 @@ def init_db():
     print("Таблицы готовы!")
 
 def main(page: ft.Page):
-    # Вызываем настройку интерфейса
     setup_main_view(page)
 
 if __name__ == "__main__":
-    # Сначала проверяем/создаем БД
     init_db()
-    # Затем запускаем десктопное приложение Flet
-    ft.app(target=main)
+
+    ft.app(target=main, view=ft.AppView.WEB_BROWSER)
