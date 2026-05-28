@@ -2,11 +2,16 @@ import flet as ft
 from datetime import date
 from frontend.components import CalendarGrid
 from frontend.event_window import EventPanel
+from backend.database import SessionLocal
+from backend.models import User
 
 def setup_main_view(page: ft.Page):
     page.title = "CalendarDot"
     page.padding = ft.padding.all(0)
     page.theme_mode = ft.ThemeMode.LIGHT  #по дефолту cветлая тема
+
+    user_avatar = page.session.get("avatar") or "😎"
+    username = page.session.get("username") or "Пользователь"
 
     #переключение темы
     def on_theme_change(e):
@@ -19,11 +24,76 @@ def setup_main_view(page: ft.Page):
         settings_dialog.open = False
         page.update()
 
+    def logout(e):
+        page.session.clear() 
+        settings_dialog.open = False
+        page.controls.clear()
+        from frontend.auth_view import setup_auth_view
+        setup_auth_view(page)
+        page.update()
+
+    dialog_title = ft.Text(f"Профиль: {username} {user_avatar}", size=20, weight=ft.FontWeight.BOLD)
+    
+    user_avatar_btn = ft.Container(
+        content=ft.Text(user_avatar, size=24),
+        padding=8,
+        border_radius=25,
+        bgcolor=ft.colors.SURFACE_VARIANT,
+        border=ft.border.all(1, ft.colors.OUTLINE_VARIANT),
+        ink=True,
+        tooltip="Настройки профиля"
+    )
+
+    def change_avatar(e):
+        new_avatar = e.control.data
+        
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.id == page.session.get("user_id")).first()
+            if user:
+                user.avatar = new_avatar
+                db.commit()
+        finally:
+            db.close()
+
+        page.session.set("avatar", new_avatar)
+
+        dialog_title.value = f"Профиль: {username} {new_avatar}"
+        user_avatar_btn.content.value = new_avatar
+        
+        for c in avatar_row_settings.controls:
+            c.bgcolor = ft.colors.PRIMARY_CONTAINER if c.data == new_avatar else ft.colors.TRANSPARENT
+        
+        page.update()
+
+    avatar_options = ["😎", "🐱", "🦋", "🦄"]
+    avatar_row_settings = ft.Row(alignment=ft.MainAxisAlignment.CENTER)
+    
+    for emoji in avatar_options:
+        avatar_row_settings.controls.append(
+            ft.Container(
+                content=ft.Text(emoji, size=24),
+                data=emoji,
+                padding=8,
+                border_radius=25,
+                bgcolor=ft.colors.PRIMARY_CONTAINER if emoji == user_avatar else ft.colors.TRANSPARENT,
+                on_click=change_avatar,
+                ink=True
+            )
+        )
+
+    logout_btn = ft.ElevatedButton("Выйти из аккаунта", on_click=logout, bgcolor=ft.colors.ERROR_CONTAINER, color=ft.colors.ON_ERROR_CONTAINER)
+
     settings_dialog = ft.AlertDialog(
-        title=ft.Text("Настройки интерфейса"),
+        title=dialog_title,
         content=ft.Column([
+            ft.Text("Сменить аватар", size=14, weight=ft.FontWeight.BOLD, color=ft.colors.PRIMARY),
+            avatar_row_settings,
+            ft.Divider(),
             ft.Text("Персонализация", size=14, weight=ft.FontWeight.BOLD, color=ft.colors.PRIMARY),
             theme_switch,
+            ft.Divider(),
+            logout_btn
         ], tight=True, spacing=15),
         actions=[
             ft.TextButton("Закрыть", on_click=close_settings)
@@ -37,7 +107,7 @@ def setup_main_view(page: ft.Page):
         settings_dialog.open = True
         page.update()
 
-    settings_btn = ft.IconButton(icon=ft.icons.SETTINGS, tooltip="Настройки", on_click=open_settings)
+    user_avatar_btn.on_click = open_settings
 
     def refresh_ui():
         event_panel.show_events_list(event_panel.selected_date)
@@ -115,9 +185,9 @@ def setup_main_view(page: ft.Page):
     )
 
     def return_to_today(e):
-            today_date = date.today()
-            calendar_grid.go_to_today() 
-            event_panel.show_events_list(today_date) 
+        today_date = date.today()
+        calendar_grid.go_to_today() 
+        event_panel.show_events_list(today_date) 
 
     clickable_logo = ft.Container(
         content=ft.Row([
@@ -135,7 +205,7 @@ def setup_main_view(page: ft.Page):
         content=ft.Row(
             controls=[
                 clickable_logo,
-                ft.Row([view_switcher, settings_btn], spacing=15) 
+                ft.Row([view_switcher, user_avatar_btn], spacing=15)
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN
         ),
