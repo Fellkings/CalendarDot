@@ -1,6 +1,6 @@
 import flet as ft
-from datetime import date
-from frontend.components import CalendarGrid
+from datetime import date, timedelta
+from frontend.components import CalendarGrid, WeekGrid
 from frontend.event_window import EventPanel
 from backend.database import SessionLocal
 from backend.models import User
@@ -111,6 +111,8 @@ def setup_main_view(page: ft.Page):
         event_panel.show_events_list(event_panel.selected_date)
         calendar_grid.build_grid()
         calendar_grid.update()
+        week_grid.build_grid()
+        week_grid.update()
 
     event_panel = EventPanel(user_id=user_id, on_event_saved=refresh_ui)
 
@@ -120,15 +122,25 @@ def setup_main_view(page: ft.Page):
     calendar_grid = CalendarGrid(user_id=user_id, on_day_click=handle_day_click)
     calendar_grid.visible = True 
 
+    week_grid = WeekGrid(user_id=user_id, on_day_click=handle_day_click)
+    week_grid.visible = False
+
     #система поиска
+
     search_results = ft.ListView(expand=True, spacing=5, height=300)
 
     def go_to_searched_date(target_date):
         search_dialog.open = False
+        
         calendar_grid.current_year = target_date.year
         calendar_grid.current_month = target_date.month
         calendar_grid.build_grid()
         calendar_grid.update()
+        
+        week_grid.start_of_week = target_date - timedelta(days=target_date.weekday())
+        week_grid.build_grid()
+        week_grid.update()
+        
         event_panel.show_events_list(target_date)
         page.update()
 
@@ -183,20 +195,8 @@ def setup_main_view(page: ft.Page):
 
     search_btn = ft.IconButton(icon=ft.icons.SEARCH, tooltip="Поиск", on_click=open_search)
 
-    week_grid_placeholder = ft.Container(
-        content=ft.Column([
-            ft.Icon(ft.icons.VIEW_WEEK, size=64, color=ft.colors.PRIMARY),
-            ft.Text("Недельный режим", size=24, weight=ft.FontWeight.BOLD),
-            ft.Text("Здесь будет почасовая сетка расписания.", 
-                    text_align=ft.TextAlign.CENTER, color=ft.colors.ON_SURFACE_VARIANT)
-        ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-        expand=True,
-        alignment=ft.alignment.center,
-        visible=False 
-    )
-
     center_area = ft.Stack(
-        controls=[calendar_grid, week_grid_placeholder],
+        controls=[calendar_grid, week_grid],
         expand=True
     )
     center_container = ft.Container(
@@ -220,12 +220,12 @@ def setup_main_view(page: ft.Page):
         view_name = e.control.data
         if view_name == "month":
             calendar_grid.visible = True
-            week_grid_placeholder.visible = False
+            week_grid.visible = False
             btn_month.style = active_style
             btn_week.style = inactive_style
         else:
             calendar_grid.visible = False
-            week_grid_placeholder.visible = True
+            week_grid.visible = True
             btn_week.style = active_style
             btn_month.style = inactive_style
         btn_month.update()
@@ -241,9 +241,14 @@ def setup_main_view(page: ft.Page):
         padding=2,
         border=ft.border.all(1, ft.colors.OUTLINE_VARIANT)
     )
+
     def return_to_today(e):
+        today = date.today()
         calendar_grid.go_to_today() 
-        event_panel.show_events_list(date.today()) 
+        week_grid.start_of_week = today - timedelta(days=today.weekday())
+        week_grid.build_grid()
+        week_grid.update()
+        event_panel.show_events_list(today) 
 
     clickable_logo = ft.Container(
         content=ft.Row([

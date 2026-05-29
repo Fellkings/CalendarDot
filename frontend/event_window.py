@@ -1,5 +1,5 @@
 import flet as ft
-from datetime import date, time
+from datetime import date, time, datetime
 from backend.database import SessionLocal
 from backend.crud import create_single_event, get_events_by_date, delete_event, get_all_categories
 
@@ -20,15 +20,22 @@ class EventPanel(ft.Container):
         
         self.title_input = ft.TextField(label="Название события")
         self.desc_input = ft.TextField(label="Описание", multiline=True, min_lines=2)
-        hours = [ft.dropdown.Option(f"{i:02d}") for i in range(24)]
-        minutes = [ft.dropdown.Option(f"{i:02d}") for i in range(0, 60, 15)]
-        self.start_hour = ft.Dropdown(options=hours, width=70, dense=True, hint_text="ЧЧ")
-        self.start_minute = ft.Dropdown(options=minutes, width=70, dense=True, hint_text="ММ")
-        self.end_hour = ft.Dropdown(options=hours, width=70, dense=True, hint_text="ЧЧ")
-        self.end_minute = ft.Dropdown(options=minutes, width=70, dense=True, hint_text="ММ")
+        
+        self.start_time_val = None
+        self.end_time_val = None
+
+        self.start_time_btn = ft.OutlinedButton(
+            text="Выбрать",
+            icon=ft.icons.ACCESS_TIME,
+            on_click=self.open_start_time_picker
+        )
+        self.end_time_btn = ft.OutlinedButton(
+            text="Выбрать",
+            icon=ft.icons.ACCESS_TIME,
+            on_click=self.open_end_time_picker
+        )
 
         self.category_dropdown = ft.Dropdown(label="Категория", dense=True)
-
         self.dynamic_content = ft.Container(expand=True)
 
         #содержимое панели
@@ -72,11 +79,8 @@ class EventPanel(ft.Container):
                 
                 if ev.category:
                     base_color = getattr(ft.colors, ev.category.color, ft.colors.PRIMARY)
-                    
                     bg_color = ft.colors.with_opacity(0.1, base_color)
-                    
                     card_border = ft.border.only(left=ft.border.BorderSide(4, base_color))
-                    
                     display_title = f"{ev.category.emoji} {ev.title}"
                 else:
                     bg_color = ft.colors.SURFACE_VARIANT
@@ -130,29 +134,94 @@ class EventPanel(ft.Container):
         if self.page:
             self.update()
 
+    def open_date_picker(self, e):
+        if not hasattr(self, 'date_picker'):
+            self.date_picker = ft.DatePicker(on_change=self.on_date_changed, help_text="Выберите день события")
+            self.page.overlay.append(self.date_picker)
+        self.date_picker.value = datetime.combine(self.selected_date, time(0, 0))
+        self.date_picker.open = True
+        self.page.update()
+
+    def on_date_changed(self, e):
+        if self.date_picker.value:
+            self.selected_date = self.date_picker.value.date()
+            if hasattr(self, 'form_date_btn'):
+                self.form_date_btn.text = self.selected_date.strftime('%d.%m.%Y')
+            self.update()
+
+    def open_start_time_picker(self, e):
+        if not hasattr(self, 'start_time_picker'):
+            self.start_time_picker = ft.TimePicker(
+                on_change=self.on_start_time_changed,
+                help_text="Введите время начала",
+                confirm_text="ОК",
+                cancel_text="ОТМЕНА",
+                time_picker_entry_mode=ft.TimePickerEntryMode.INPUT
+            )
+            self.page.overlay.append(self.start_time_picker)
+        self.start_time_picker.open = True
+        self.page.update()
+
+    def on_start_time_changed(self, e):
+        if self.start_time_picker.value:
+            self.start_time_val = self.start_time_picker.value
+            self.start_time_btn.text = self.start_time_val.strftime('%H:%M')
+            self.update()
+
+    def open_end_time_picker(self, e):
+        if not hasattr(self, 'end_time_picker'):
+            self.end_time_picker = ft.TimePicker(
+                on_change=self.on_end_time_changed,
+                help_text="Введите время окончания",
+                confirm_text="ОК",
+                cancel_text="ОТМЕНА",
+                time_picker_entry_mode=ft.TimePickerEntryMode.INPUT
+            )
+            self.page.overlay.append(self.end_time_picker)
+        self.end_time_picker.open = True
+        self.page.update()
+
+    def on_end_time_changed(self, e):
+        if self.end_time_picker.value:
+            self.end_time_val = self.end_time_picker.value
+            self.end_time_btn.text = self.end_time_val.strftime('%H:%M')
+            self.update()
+
     def show_creation_form(self, e):
         self.title_input.value = ""
         self.desc_input.value = ""
-        self.start_hour.value = None
-        self.start_minute.value = None
-        self.end_hour.value = None
-        self.end_minute.value = None
+        
+        self.start_time_val = None
+        self.end_time_val = None
+        self.start_time_btn.text = "Выбрать"
+        self.end_time_btn.text = "Выбрать"
         
         self.load_categories_to_dropdown()
         self.category_dropdown.value = None 
+
+        self.form_date_btn = ft.OutlinedButton(
+            text=self.selected_date.strftime('%d.%m.%Y'),
+            icon=ft.icons.CALENDAR_MONTH,
+            on_click=self.open_date_picker
+        )
 
         self.dynamic_content.content = ft.Column([
             ft.Text("Создание события", size=16, weight=ft.FontWeight.BOLD, color=ft.colors.PRIMARY),
             self.title_input,
             self.category_dropdown,
             ft.Row([
+                ft.Text("Дата:", width=60), 
+                self.form_date_btn
+            ], alignment=ft.MainAxisAlignment.START),
+            
+            ft.Row([
                 ft.Text("Начало:", width=60), 
-                self.start_hour, ft.Text(":"), self.start_minute
+                self.start_time_btn
             ], alignment=ft.MainAxisAlignment.START),
 
             ft.Row([
                 ft.Text("Конец:", width=60), 
-                self.end_hour, ft.Text(":"), self.end_minute
+                self.end_time_btn
             ], alignment=ft.MainAxisAlignment.START),
 
             self.desc_input,
@@ -172,26 +241,13 @@ class EventPanel(ft.Container):
         if not title:
             return
 
-        start_t = None
-        end_t = None
-
-        if self.start_hour.value:
-            s_hour = int(self.start_hour.value)
-            s_minute = int(self.start_minute.value) if self.start_minute.value else 0
-            start_t = time(s_hour, s_minute)
-            
-        if self.end_hour.value:
-            e_hour = int(self.end_hour.value)
-            e_minute = int(self.end_minute.value) if self.end_minute.value else 0
-            end_t = time(e_hour, e_minute)
-
         cat_id = int(self.category_dropdown.value) if self.category_dropdown.value else None
 
         db = SessionLocal()
         try:
             create_single_event(db, title=title, description=desc, event_date=self.selected_date, 
                                 user_id=self.user_id,
-                                start_t=start_t, end_t=end_t, category_id=cat_id)
+                                start_t=self.start_time_val, end_t=self.end_time_val, category_id=cat_id)
         except Exception as ex:
             print(f"Произошла ошибка при сохранении: {ex}")
         finally:
