@@ -10,11 +10,12 @@ MONTH_NAMES = [
 ]
 
 class CalendarGrid(ft.Column):
-    def __init__(self, on_day_click):
+    def __init__(self, user_id: int, on_day_click):
         super().__init__()
         self.expand = True
         self.spacing = 0 
         self.on_day_click = on_day_click
+        self.user_id = user_id
 
         #текущий год и месяц
         now = datetime.now()
@@ -24,12 +25,12 @@ class CalendarGrid(ft.Column):
         self.build_grid()
 
     def go_to_today(self):
-            now = datetime.now()
-            self.current_year = now.year
-            self.current_month = now.month
-            self.build_grid()
-            if self.page:
-                self.update()
+        now = datetime.now()
+        self.current_year = now.year
+        self.current_month = now.month
+        self.build_grid()
+        if self.page:
+            self.update()
 
     def build_grid(self):
         self.controls.clear()
@@ -41,7 +42,7 @@ class CalendarGrid(ft.Column):
         
         db = SessionLocal()
         try:
-            all_events = get_events_by_date_range(db, month_dates[0], month_dates[-1])
+            all_events = get_events_by_date_range(db, month_dates[0], month_dates[-1], self.user_id)
             events_by_date = {}
             for ev in all_events:
                 ev_date = ev.start_time.date()

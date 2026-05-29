@@ -4,6 +4,7 @@ from frontend.components import CalendarGrid
 from frontend.event_window import EventPanel
 from backend.database import SessionLocal
 from backend.models import User
+from backend.crud import search_user_events
 
 def setup_main_view(page: ft.Page):
     page.title = "CalendarDot"
@@ -12,6 +13,7 @@ def setup_main_view(page: ft.Page):
 
     user_avatar = page.session.get("avatar") or "😎"
     username = page.session.get("username") or "Пользователь"
+    user_id = page.session.get("user_id")
 
     #переключение темы
     def on_theme_change(e):
@@ -46,10 +48,9 @@ def setup_main_view(page: ft.Page):
 
     def change_avatar(e):
         new_avatar = e.control.data
-        
         db = SessionLocal()
         try:
-            user = db.query(User).filter(User.id == page.session.get("user_id")).first()
+            user = db.query(User).filter(User.id == user_id).first()
             if user:
                 user.avatar = new_avatar
                 db.commit()
@@ -57,18 +58,15 @@ def setup_main_view(page: ft.Page):
             db.close()
 
         page.session.set("avatar", new_avatar)
-
         dialog_title.value = f"Профиль: {username} {new_avatar}"
         user_avatar_btn.content.value = new_avatar
         
         for c in avatar_row_settings.controls:
             c.bgcolor = ft.colors.PRIMARY_CONTAINER if c.data == new_avatar else ft.colors.TRANSPARENT
-        
         page.update()
 
     avatar_options = ["😎", "🐱", "🦋", "🦄"]
     avatar_row_settings = ft.Row(alignment=ft.MainAxisAlignment.CENTER)
-    
     for emoji in avatar_options:
         avatar_row_settings.controls.append(
             ft.Container(
@@ -114,13 +112,76 @@ def setup_main_view(page: ft.Page):
         calendar_grid.build_grid()
         calendar_grid.update()
 
-    event_panel = EventPanel(on_event_saved=refresh_ui)
+    event_panel = EventPanel(user_id=user_id, on_event_saved=refresh_ui)
 
     def handle_day_click(date_obj):
         event_panel.show_events_list(date_obj)
 
-    calendar_grid = CalendarGrid(on_day_click=handle_day_click)
+    calendar_grid = CalendarGrid(user_id=user_id, on_day_click=handle_day_click)
     calendar_grid.visible = True 
+
+    #система поиска
+    search_results = ft.ListView(expand=True, spacing=5, height=300)
+
+    def go_to_searched_date(target_date):
+        search_dialog.open = False
+        calendar_grid.current_year = target_date.year
+        calendar_grid.current_month = target_date.month
+        calendar_grid.build_grid()
+        calendar_grid.update()
+        event_panel.show_events_list(target_date)
+        page.update()
+
+    def perform_search(e):
+        query = e.control.value.strip()
+        search_results.controls.clear()
+        
+        if len(query) < 2:
+            search_results.update()
+            return
+
+        db = SessionLocal()
+        try:
+            events = search_user_events(db, user_id, query)
+            if not events:
+                search_results.controls.append(
+                    ft.Text("Ничего не найдено...", color=ft.colors.OUTLINE, italic=True)
+                )
+            else:
+                for ev in events:
+                    search_results.controls.append(
+                        ft.ListTile(
+                            leading=ft.Icon(ft.icons.EVENT, color=ft.colors.PRIMARY),
+                            title=ft.Text(ev.title, weight=ft.FontWeight.BOLD),
+                            subtitle=ft.Text(ev.start_time.strftime("%d.%m.%Y %H:%M")),
+                            on_click=lambda e, d=ev.start_time.date(): go_to_searched_date(d)
+                        )
+                    )
+        finally:
+            db.close()
+        search_results.update()
+
+    search_input = ft.TextField(
+        hint_text="Введите название или описание...",
+        prefix_icon=ft.icons.SEARCH,
+        autofocus=True,
+        on_change=perform_search
+    )
+
+    search_dialog = ft.AlertDialog(
+        title=ft.Text("Поиск событий"),
+        content=ft.Column([search_input, search_results], tight=True, width=450),
+        actions=[ft.TextButton("Закрыть", on_click=lambda e: setattr(search_dialog, 'open', False) or page.update())]
+    )
+
+    def open_search(e):
+        search_input.value = ""
+        search_results.controls.clear()
+        page.dialog = search_dialog
+        search_dialog.open = True
+        page.update()
+
+    search_btn = ft.IconButton(icon=ft.icons.SEARCH, tooltip="Поиск", on_click=open_search)
 
     week_grid_placeholder = ft.Container(
         content=ft.Column([
@@ -138,7 +199,6 @@ def setup_main_view(page: ft.Page):
         controls=[calendar_grid, week_grid_placeholder],
         expand=True
     )
-
     center_container = ft.Container(
         content=center_area, 
         expand=True, 
@@ -168,14 +228,12 @@ def setup_main_view(page: ft.Page):
             week_grid_placeholder.visible = True
             btn_week.style = active_style
             btn_month.style = inactive_style
-
         btn_month.update()
         btn_week.update()
         center_area.update()
 
     btn_month = ft.TextButton("Месяц", icon=ft.icons.CALENDAR_VIEW_MONTH, data="month", on_click=switch_view, style=active_style)
     btn_week = ft.TextButton("Неделя", icon=ft.icons.VIEW_WEEK, data="week", on_click=switch_view, style=inactive_style)
-
     view_switcher = ft.Container(
         content=ft.Row([btn_month, btn_week], spacing=2),
         bgcolor=ft.colors.SURFACE,
@@ -183,11 +241,9 @@ def setup_main_view(page: ft.Page):
         padding=2,
         border=ft.border.all(1, ft.colors.OUTLINE_VARIANT)
     )
-
     def return_to_today(e):
-        today_date = date.today()
         calendar_grid.go_to_today() 
-        event_panel.show_events_list(today_date) 
+        event_panel.show_events_list(date.today()) 
 
     clickable_logo = ft.Container(
         content=ft.Row([
@@ -205,7 +261,7 @@ def setup_main_view(page: ft.Page):
         content=ft.Row(
             controls=[
                 clickable_logo,
-                ft.Row([view_switcher, user_avatar_btn], spacing=15)
+                ft.Row([search_btn, view_switcher, user_avatar_btn], spacing=15)
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN
         ),

@@ -4,8 +4,9 @@ from backend.database import SessionLocal
 from backend.crud import create_single_event, get_events_by_date, delete_event, get_all_categories
 
 class EventPanel(ft.Container):
-    def __init__(self, on_event_saved):
+    def __init__(self, user_id: int, on_event_saved):
         super().__init__()
+        self.user_id = user_id
         self.width = 320
         self.bgcolor = ft.colors.SURFACE_VARIANT
         self.padding = 20
@@ -42,7 +43,7 @@ class EventPanel(ft.Container):
     def load_categories_to_dropdown(self):
         #список категорий
         db = SessionLocal()
-        categories = get_all_categories(db)
+        categories = get_all_categories(db, self.user_id)
         db.close()
         
         options = []
@@ -56,7 +57,7 @@ class EventPanel(ft.Container):
         self.date_label.value = d.strftime('%d.%m.%Y')
         
         db = SessionLocal()
-        events = get_events_by_date(db, d)
+        events = get_events_by_date(db, d, self.user_id) 
         db.close()
 
         events_controls = []
@@ -68,18 +69,23 @@ class EventPanel(ft.Container):
                 is_all_day = (ev.start_time.hour == 0 and ev.start_time.minute == 0 and 
                               ev.end_time.hour == 23 and ev.end_time.minute == 59)
                 time_str = "Весь день" if is_all_day else f"{ev.start_time.strftime('%H:%M')} - {ev.end_time.strftime('%H:%M')}"
+                
                 if ev.category:
-                    bg_color = getattr(ft.colors, ev.category.color, ft.colors.SECONDARY_CONTAINER)
+                    base_color = getattr(ft.colors, ev.category.color, ft.colors.PRIMARY)
+                    
+                    bg_color = ft.colors.with_opacity(0.1, base_color)
+                    
+                    card_border = ft.border.only(left=ft.border.BorderSide(4, base_color))
+                    
                     display_title = f"{ev.category.emoji} {ev.title}"
-                    title_color = ft.colors.BLACK
-                    time_color = ft.colors.BLUE_700
-                    desc_color = ft.colors.GREY_700
                 else:
-                    bg_color = ft.colors.SECONDARY_CONTAINER
+                    bg_color = ft.colors.SURFACE_VARIANT
+                    card_border = None
                     display_title = ev.title
-                    title_color = ft.colors.ON_SURFACE
-                    time_color = ft.colors.PRIMARY
-                    desc_color = ft.colors.ON_SURFACE_VARIANT
+
+                title_color = ft.colors.ON_SURFACE
+                time_color = ft.colors.ON_SURFACE
+                desc_color = ft.colors.ON_SURFACE_VARIANT
 
                 events_controls.append(
                     ft.Container(
@@ -91,10 +97,9 @@ class EventPanel(ft.Container):
                                     ft.Text(ev.description or "", size=12, color=desc_color)
                                 ], spacing=2, expand=True),
                                 
-                                #кнопка удаления
                                 ft.IconButton(
                                     icon=ft.icons.DELETE_OUTLINE, 
-                                    icon_color=ft.colors.RED_600,
+                                    icon_color=ft.colors.ERROR, 
                                     tooltip="Удалить событие",
                                     on_click=lambda e, ev_id=ev.id: self.delete_click(ev_id)
                                 )
@@ -103,8 +108,9 @@ class EventPanel(ft.Container):
                             vertical_alignment=ft.CrossAxisAlignment.START
                         ),
                         bgcolor=bg_color,
+                        border=card_border,
                         padding=10,
-                        border_radius=6,
+                        border_radius=8,
                         margin=ft.margin.only(bottom=10)
                     )
                 )
@@ -183,8 +189,8 @@ class EventPanel(ft.Container):
 
         db = SessionLocal()
         try:
-
             create_single_event(db, title=title, description=desc, event_date=self.selected_date, 
+                                user_id=self.user_id,
                                 start_t=start_t, end_t=end_t, category_id=cat_id)
         except Exception as ex:
             print(f"Произошла ошибка при сохранении: {ex}")
@@ -199,7 +205,7 @@ class EventPanel(ft.Container):
     def delete_click(self, event_id):
         db = SessionLocal()
         try:
-            delete_event(db, event_id)
+            delete_event(db, event_id, self.user_id)
             print(f"Событие ID {event_id} удалено.")
         except Exception as ex:
             print(f"Ошибка при удалении: {ex}")
